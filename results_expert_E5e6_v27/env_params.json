@@ -1,0 +1,32 @@
+{
+  "n_elem": 20,
+  "sim_dt": 0.0002,
+  "num_steps_per_update": 7,
+  "base_length": 1.0,
+  "base_radius": 0.05,
+  "density": 1000.0,
+  "young_modulus": 5000000.0,
+  "NU": 11.0,
+  "n_control_points": 6,
+  "alpha": 75.0,
+  "max_rate_of_change_of_activation": Infinity,
+  "target_v_max": 0.5,
+  "p_static": 0.3,
+  "boundary": [
+    -0.35,
+    0.35,
+    0.9,
+    1.0,
+    -0.35,
+    0.35
+  ],
+  "final_time": 10.0,
+  "success_threshold": 0.01,
+  "w_dist": 2.0,
+  "w_precision": 5.0,
+  "w_progress": 1.0,
+  "w_smoothness": 0.03,
+  "w_on_target": 0.5,
+  "sigma_mult": 1.5,
+  "sigma_floor": 0.01
+}

@@ -1,0 +1,41 @@
+.idea/
+
+results_expert_E*/checkpoints/
+results_expert_E*/tensorboard/
+results_expert_E*/*.zip
+results_expert_E*/*.pkl
+
+
+results_student_*/
+
+results_dagger_*/round_*/
+results_dagger_*/videos_*/
+results_dagger_*/dataset_*.npz
+results_dagger_fast/student_dagger_final.pth
+
+results_dagger_targeted/round_1/videos_final
+results_dagger_targeted/round_1/student_targeted_r1.pth
+results_dagger_targeted/round_2
+results_dagger_targeted/dataset_targeted_r1.npz
+results_dagger_targeted/dataset_targeted_r2.npz
+results_dagger_targeted/student_targeted_final.pth
+
+Evaluation/
+
+distillation_data/
+
+ClassicalMethod/results_classical_pd/
+
+# File di cache e compilati Python
+__pycache__/
+*.py[cod]
+*$py.class
+__pycache__/
+
+# Ambiente virtuale (se ne usi uno)
+venv/
+.env
+
+# File di sistema e Jupyter
+.DS_Store
+.ipynb_checkpoints/

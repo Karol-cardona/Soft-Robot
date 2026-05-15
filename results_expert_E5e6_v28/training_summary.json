@@ -1,0 +1,9 @@
+{
+  "total_timesteps": 25000000,
+  "total_episodes": 3488,
+  "final_mean_error": 0.016969888754574152,
+  "final_on_goal_frac": 0.5485802000000255,
+  "final_1cm_rate": 0.375,
+  "final_2cm_rate": 0.768,
+  "best_on_goal_dynamic": 0.667559200000037
+}
