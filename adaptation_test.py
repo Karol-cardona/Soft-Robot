@@ -1,35 +1,17 @@
 """
-Adaptation test — step and gradual changes in perceived Young's modulus.
+Adaptation Test — Student Policy
+=================================
 
-Evaluates the student's ability to adapt its control policy when the
-stiffness it BELIEVES the rod has changes mid-episode.
+Tests the student's response to changes in physical body stiffness.
+Both the student's E_norm input AND the rod's physical Young's modulus
+are synchronized at every step via the env.change_young_modulus() hot-swap
+mechanism. This preserves rod state (positions, velocities) while changing
+only the elastic response.
 
-Important methodological note
------------------------------
-PyElastica does NOT allow the Young's modulus of a rod to be changed
-at runtime without rebuilding the rod (which would reset the
-simulation state). This script therefore tests adaptation by varying
-the `E_norm` input fed to the student — i.e. the student's *belief*
-about the stiffness — while the actual rod stays at a fixed physical
-E throughout.
-
-This setup probes the controller in isolation:
-  - How does the policy reorganize its actions when its
-    conditioning input changes?
-  - How quickly does it converge to a new steady state?
-  - Are there overshoots or transient instabilities?
-
-It does NOT directly measure the response to a real physical stiffness
-change. Doing that would require either re-implementing rod rebuilding
-between RL steps or switching simulator. For the present scope (does
-the student's policy degrade gracefully under conditioning shifts?)
-this is a reasonable proxy.
-
-Scenarios
----------
-1. STEP soft -> stiff:   E_norm 0.0 -> 1.0 at episode midpoint.
-2. STEP stiff -> soft:   E_norm 1.0 -> 0.0 at episode midpoint.
-3. GRADUAL drift:        E_norm 0.0 -> 1.0 linear over the episode.
+Scenarios:
+  1. STEP soft → stiff:   E (and E_norm) jump at episode midpoint
+  2. STEP stiff → soft:   inverse step
+  3. GRADUAL drift:       linear interpolation over the episode
 
 Metrics
 -------
@@ -106,6 +88,10 @@ RECOVERY_THRESHOLD = 0.01    # meters — error level below which we
 # consider the agent "recovered"
 RECOVERY_WINDOW    = 20
 
+def denormalize_E(E_norm: float) -> float:
+    """Inverse of normalize_E: converts E_norm ∈ [0,1] back to E ∈ [E_MIN, E_MAX]."""
+    log_E = np.log10(E_MIN) + E_norm * (np.log10(E_MAX) - np.log10(E_MIN))
+    return float(10 ** log_E)
 
 # UTILITIES
 
@@ -141,33 +127,56 @@ def student_predict(model, obs, E_norm, device):
 
 # SCENARIO RUNNERS
 
-def run_episode_with_E_schedule(model, device, E_physical, E_norm_schedule, seed):
-    """Run one episode while feeding a per-step E_norm to the student.
-
-    `E_norm_schedule(step_idx) -> E_norm` is queried at every RL step
-    so each scenario (step, drift, ...) can define its own schedule
-    without changing this function.
-
-    Returns
-    -------
-    errors  : np.ndarray of per-step distance errors (meters)
-    E_norms : np.ndarray of per-step E_norm values actually fed in
+def run_episode_with_E_schedule(model, device, E_initial, E_norm_schedule, seed):
     """
-    env = RodTrackingEnv(**{**ENV_PARAMS, 'young_modulus': E_physical})
+    Run one episode while feeding a per-step E_norm to the student
+    AND synchronizing the physical Young's modulus via hot-swap.
+
+    The physical E is updated whenever E_norm changes meaningfully
+    (avoids redundant hot-swap calls during constant phases).
+    """
+    env = RodTrackingEnv(**{**ENV_PARAMS, 'young_modulus': E_initial})
     obs, _ = env.reset(seed=seed)
 
     errors = []
     E_norms = []
-    step = 0
-    done = False
+    last_E_phys = E_initial     # track current physical E to detect changes
 
-    while not done:
+    step = 0
+
+    # for step in range(N_EPISODES):
+    #     E_norm_now = E_norm_schedule(step)
+    #
+    #     # hot-swap the physical E whenever E_norm changes significantly
+    #     E_target = denormalize_E(E_norm_now)
+    #     if abs(E_target - last_E_phys) / last_E_phys > 1e-3:  # >0.1% change
+    #         env.change_young_modulus(E_target)
+    #         last_E_phys = E_target
+    #
+    #     action = student_predict(model, obs, E_norm_now, device)
+    #     obs, _, term, trunc, info = env.step(action)
+    #     errors.append(info["error"])
+    #     E_norms.append(E_norm_now)
+    #     if term or trunc: break
+
+    while True:
         E_norm_now = E_norm_schedule(step)
+
+        # hot-swap the physical E whenever E_norm changes significantly
+        E_target = denormalize_E(E_norm_now)
+        if abs(E_target - last_E_phys) / last_E_phys > 1e-3:  # >0.1% change
+            env.change_young_modulus(E_target)
+            last_E_phys = E_target
+
         action = student_predict(model, obs, E_norm_now, device)
-        obs, _, terminated, truncated, info = env.step(action)
-        done = terminated or truncated
+        obs, _, term, trunc, info = env.step(action)
+
         errors.append(info["error"])
         E_norms.append(E_norm_now)
+
+        if term or trunc:
+            break
+
         step += 1
 
     env.close()
@@ -200,7 +209,7 @@ def run_step_scenario(model, device, E_norm_before, E_norm_after, n_episodes):
             E_norm_before if step < c else E_norm_after
         )
         errors, E_norms = run_episode_with_E_schedule(
-            model, device, E_PHYSICAL, schedule, seed=ep * 7919
+            model, device,  denormalize_E(E_norm_before), schedule, seed=ep * 7919
         )
         all_errors.append(errors)
         all_E_norms.append(E_norms)
@@ -227,7 +236,7 @@ def run_drift_scenario(model, device, E_norm_start, E_norm_end, n_episodes):
 
     for ep in tqdm(range(n_episodes), desc=f"Drift {E_norm_start:.2f}→{E_norm_end:.2f}"):
         errors, E_norms = run_episode_with_E_schedule(
-            model, device, E_PHYSICAL, schedule, seed=ep * 7919
+            model, device, denormalize_E(E_norm_start), schedule, seed=ep * 7919
         )
         all_errors.append(errors)
         all_E_norms.append(E_norms)

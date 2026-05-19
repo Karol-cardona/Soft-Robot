@@ -745,6 +745,35 @@ class RodTrackingEnv(gym.Env):
 
         return state, float(reward), False, truncated, info
 
+    def change_young_modulus(self, new_E: float):
+        """
+        Hot-swaps the bending and shear matrices of the active rod
+        to physically change the Young's modulus mid-simulation,
+        without resetting positions, velocities, or internal state.
+        """
+        # PyElastica defaults: shear_modulus = E / (2*(1+poisson_ratio))
+        new_G = new_E / (2.0 * (1.0 + self.poisson_ratio))
+
+        # Build a dummy rod with the new stiffness
+        dummy_rod = CosseratRod.straight_rod(
+            n_elements=self.n_elem,
+            start=np.zeros(3),
+            direction=np.array([0.0, 1.0, 0.0]),
+            normal=np.array([0.0, 0.0, 1.0]),
+            base_length=self.base_length,
+            base_radius=self.base_radius,
+            density=self.density,
+            youngs_modulus=new_E,
+            shear_modulus=new_G
+        )
+
+        # Overwrites the in-place arrays in the active simulation
+        self.shearable_rod.bend_matrix[:] = dummy_rod.bend_matrix
+        self.shearable_rod.shear_matrix[:] = dummy_rod.shear_matrix
+
+        # Update the value saved in the env
+        self.E = new_E
+
 
     def render(self, mode="human"):
         pass
