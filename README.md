@@ -4,7 +4,7 @@ Soft-robot reinforcement learning thesis project: train a single
 control policy that adapts to runtime changes in body stiffness
 (Young's modulus) without retraining.
 
-> **University of Pisa** — Thesis project by **Karol**  
+> **University of Pisa** — Project by **Karol**  
 > **Tutors:** Enrico Donato, Francesca Sparnacci
 
 ---
